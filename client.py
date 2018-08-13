@@ -1,3 +1,4 @@
+from __future__ import absolute_import, unicode_literals
 import time
 from bs4 import BeautifulSoup
 import random
@@ -10,6 +11,8 @@ from Crypto.Cipher import AES
 import base64, os
 import json
 import string
+from steganography.steganography import Steganography
+import base58
 
 def fake_message():
     lines = open('sentences.txt').read().splitlines()
@@ -34,7 +37,7 @@ def post_message_to_relay(message):
 
 def get_message_from_relay():
 
-    return requests.get("http://34.217.16.124:5000/blast").text
+    return requests.get("http://34.217.16.124:5000/blast", stream = True).content
 
 def key_exchange_mode():
 
@@ -103,22 +106,21 @@ def hide_in_attribute(html_page_file, shards, tag_list):
         tag_nums.append({x : tag_list[shard_num], "tag_name" : tag_name, "shard_num" : shard_num, "html_page_file" : html_page_file,})
         shard_num += 1
         fw.close()
-        
-    html_doc = open(html_page_file).read()
-    soup = BeautifulSoup(html_doc, 'html.parser')
-    tags = soup.find_all(tag_list[shard_num])
-    x = random.randint(0, num_tags)
-    reassembly = json.dumps(tag_nums)
-    tag_name = ''.join([random.choice(string.ascii_letters + string.digits) for n in xrange(y)])
-    tags[x][tag_name] = shard + "CCCCCCCCCCCCCCCCCCCCCCCCCCC"
+                
+    return json.dumps(tag_nums)
     
-        
-    return tag_nums
+def hide_metadata(message):
 
-def hide_metadata(html_page_file, tag_nums):
-    ####
-    pass
+    #encoded = base64.b64encode(message.encode())
+    #encoded = base58.b58encode(encoded.encode())
+    r = requests.post("http://34.217.16.124:5000/img/ewflwkewhnuhfnuajfjn", data={"message-ujwjejwjaq" : message})
 
+def get_metadata():
+    r = requests.get("http://34.217.16.124:5000/img/ewflwkewhnuhfnuajfjn")
+    #message = base58.b58decode(r.text.encode())
+    #message = base64.b64decode(r.text.encode())
+    return r.text
+                      
 def generate_fake_data(html_page_file, tag_list):
 
     for i in range(10):
@@ -149,13 +151,16 @@ if __name__ == "__main__":
         print(encrypted_msg)
         
         f = open("index.html").read()
-        #print("   Secret Key: %s - (%d)" % (secret_key, len(secret_key)))
-        #print("Encrypted Msg: %s - (%d)" % (encrypted_msg, len(encrypted_msg)))
-        #print("Decrypted Msg: %s - (%d)" % (decrypted_msg, len(decrypted_msg)))
-        #print("Sharded Msg: %s" % sharded_encrypted_message)
-        #print get_message_from_relay()
-        print(hide_in_attribute("index.html", sharded_encrypted_message, ["a", "div", "p"]))
+
+
+        meta = hide_in_attribute("index.html", sharded_encrypted_message, ["a", "div", "p"])
         time.sleep(1)
+                
         generate_fake_data("index.html", ["span", "div", "p"])
         time.sleep(1)
         post_message_to_relay(f)
+        time.sleep(1)
+
+        hide_metadata(encrypt_message(meta, secret_key, padding_character))
+        time.sleep(1)
+        print(decrypt_message(get_metadata(), secret_key, padding_character))
